@@ -1,6 +1,6 @@
 ﻿/*
   This file is part of SerialPortLib (https://github.com/genielabs/serialport-lib-dotnet)
- 
+
   Copyright (2012-2023) G-Labs (https://github.com/genielabs)
 
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,11 +26,11 @@ using System.Threading;
 
 using System.IO.Ports;
 using System.Runtime.InteropServices;
-using NLog;
+using log4net;
+using System.Reflection;
 
 namespace SerialPortLib
 {
-
     /// <summary>
     /// DataBits enum.
     /// </summary>
@@ -40,14 +40,17 @@ namespace SerialPortLib
         /// DataBits 5.
         /// </summary>
         Five = 5,
+
         /// <summary>
         /// DataBits 6.
         /// </summary>
         Six,
+
         /// <summary>
         /// DataBits 7.
         /// </summary>
         Seven,
+
         /// <summary>
         /// DataBits 8.
         /// </summary>
@@ -59,10 +62,9 @@ namespace SerialPortLib
     /// </summary>
     public class SerialPortInput
     {
-
         #region Private Fields
 
-        private static Logger _logger = LogManager.GetCurrentClassLogger();
+        private static readonly ILog _logger = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         private SerialPort _serialPort;
 
         private string _portName = "";
@@ -76,15 +78,18 @@ namespace SerialPortLib
 
         // Serial port reader task
         private Thread _reader;
+
         private CancellationTokenSource _readerCts;
+
         // Serial port connection watcher
         private Thread _connectionWatcher;
+
         private CancellationTokenSource _connectionWatcherCts;
 
         private readonly object _accessLock = new object();
         private bool _disconnectRequested;
 
-        #endregion
+        #endregion Private Fields
 
         #region Public Events
 
@@ -108,7 +113,7 @@ namespace SerialPortLib
         /// </summary>
         public event MessageReceivedEventHandler MessageReceived;
 
-        #endregion
+        #endregion Public Events
 
         #region Public Members
 
@@ -184,9 +189,9 @@ namespace SerialPortLib
         {
             if (_portName != portName || _baudRate != baudRate || stopBits != _stopBits || parity != _parity || dataBits != _dataBits)
             {
-                // Change Parameters request
-                // Take into account immediately the new connection parameters
-                // (do not use the ConnectionWatcher, otherwise strange things will occurs !)
+                // Change Parameters request Take into account immediately the new connection
+                // parameters (do not use the ConnectionWatcher, otherwise strange things will
+                // occurs !)
                 _portName = portName;
                 _baudRate = baudRate;
                 _stopBits = stopBits;
@@ -229,7 +234,7 @@ namespace SerialPortLib
         /// </summary>
         public int ReconnectDelay { get; set; } = 1000;
 
-        #endregion
+        #endregion Public Members
 
         #region Private members
 
@@ -260,8 +265,8 @@ namespace SerialPortLib
                         _serialPort.Parity = _parity;
                         _serialPort.DataBits = (int)_dataBits;
 
-                        // We are not using serialPort.DataReceived event for receiving data since this is not working under Linux/Mono.
-                        // We use the readerTask instead (see below).
+                        // We are not using serialPort.DataReceived event for receiving data since
+                        // this is not working under Linux/Mono. We use the readerTask instead (see below).
                         _serialPort.Open();
                         success = true;
                     }
@@ -315,24 +320,24 @@ namespace SerialPortLib
             LogError(e.EventType);
         }
 
-        #endregion
+        #endregion Serial Port handling
 
         #region Background Tasks
 
         private void ReaderTask(object data)
         {
-            var ct = (CancellationToken) data;
+            var ct = (CancellationToken)data;
             while (IsConnected && !ct.IsCancellationRequested)
             {
                 int msglen = 0;
-                //
+
                 try
                 {
                     msglen = _serialPort.BytesToRead;
                     if (msglen > 0)
                     {
                         byte[] message = new byte[msglen];
-                        //
+
                         int readBytes = 0;
                         while (readBytes <= 0)
                             readBytes = _serialPort.Read(message, readBytes, msglen - readBytes); // noop
@@ -357,9 +362,9 @@ namespace SerialPortLib
 
         private void ConnectionWatcherTask(object data)
         {
-            var ct = (CancellationToken) data;
-            // This task takes care of automatically reconnecting the interface
-            // when the connection is drop or if an I/O error occurs
+            var ct = (CancellationToken)data;
+            // This task takes care of automatically reconnecting the interface when the connection
+            // is drop or if an I/O error occurs
             while (!_disconnectRequested && !ct.IsCancellationRequested)
             {
                 if (_gotReadWriteError)
@@ -405,10 +410,10 @@ namespace SerialPortLib
 
         private void LogError(SerialError error)
         {
-            _logger.Error("SerialPort ErrorReceived: {0}", error);
+            _logger.Error($"SerialPort ErrorReceived: {error}");
         }
 
-        #endregion
+        #endregion Background Tasks
 
         #region Events Raising
 
@@ -438,10 +443,8 @@ namespace SerialPortLib
             }
         }
 
-        #endregion
+        #endregion Events Raising
 
-        #endregion
-
+        #endregion Private members
     }
-
 }
